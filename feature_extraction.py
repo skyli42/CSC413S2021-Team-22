@@ -9,6 +9,12 @@ Original file is located at
 # Imports
 """
 
+!pip install download
+!python -c "from download import download; download('https://raw.githubusercontent.com/NeuroTechX/moabb/master/requirements.txt', 'requirements.txt', replace=True)"
+!pip install -r requirements.txt
+!rm requirements.txt
+!pip install -U https://github.com/NeuroTechX/moabb/archive/master.zip
+
 from moabb.datasets import BNCI2014001
 from moabb.paradigms import (LeftRightImagery, MotorImagery,
                              FilterBankMotorImagery)
@@ -72,21 +78,43 @@ def normalize_axis(data, ax) :
     normalized = mean_centered/std[...,np.newaxis]
     return normalized
 
-"""### Power Spectral Density"""
+"""### Power Spectral Density
+
+Gamma (γ)	&gt;35 Hz	Concentration
+
+Beta (β)	12–35 Hz	Anxiety dominant, active, external attention, relaxed
+
+Alpha (α)	8–12 Hz	Very relaxed, passive attention
+
+Theta (θ)	4–8 Hz	Deeply relaxed, inward focused
+
+Delta (δ)	0.5–4 Hz	Sleep
+"""
 
 def psd_feature(windowed_data, normalize=False, sample_freq=250, cutoff_freq=60): #use 250Hz, 
 
   f, psd = welch(windowed_data, sample_freq, nperseg=windowed_data.shape[3], axis=-1) #use the full window size for nperseg
 
-  idx = np.argwhere(f<cutoff_freq) 
-  psd = psd[..., idx]               #select freq_bins less then cut off
-  psd = np.swapaxes(np.squeeze(psd), -1, -2) #put window as last dim
+  Delta_idx = np.argwhere(f<4)
+  Theta_idx = np.argwhere((4<=f) & (f<8))
+  Alpha_idx = np.argwhere((8<=f) & (f<12))
+  Beta_idx  = np.argwhere((12<=f) & (f<35))
+  Gamma_idx = np.argwhere((35<=f) & (f<cutoff_freq))
+  Delta = np.sum(psd[...,Delta_idx], axis=3)
+  Theta = np.sum(psd[...,Theta_idx], axis=3)
+  Alpha = np.sum(psd[...,Alpha_idx], axis=3)
+  Beta  = np.sum(psd[...,Beta_idx ], axis=3)
+  Gamma = np.sum(psd[...,Gamma_idx], axis=3)
+
+  ppsd = np.concatenate((Delta, Theta, Alpha, Beta, Gamma), axis=3)
+
+  ppsd = np.swapaxes(np.squeeze(ppsd), -1, -2) #put window as last dim
 
   if normalize:
-    psd = normalize(psd, 3)
+    ppsd = normalize(ppsd, 3)
   
 
-  return  psd# returns trial x channel x freq_bin x window
+  return  ppsd# returns trial x channel x freq_bin x window
 
 #huh = psd_feature(Z)
 #print(huh.shape)
@@ -156,7 +184,7 @@ def pkpk(windowed_data):
 def extract_features(windowed_data):
   '''
   Takes windowed time series data and computes freqency and statistical features for each window. 
-  
+
   Features computed are (25 total): power spectral density for 18 different frequecies, kurtosis, 
   abosulute area under curve, zero crossings, mean, varience, skewedness, and peak to peak
   
@@ -168,6 +196,7 @@ def extract_features(windowed_data):
   '''
 
   psd = psd_feature(windowed_data)
+  print("PSD shape: ", psd.shape)
   k = window_kurtosis(windowed_data)
   abs_under = abs_under_curve(windowed_data)
   zeros = zero_crossings(windowed_data)
