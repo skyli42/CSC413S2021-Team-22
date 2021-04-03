@@ -9,12 +9,6 @@ Original file is located at
 # Imports
 """
 
-!pip install download
-!python -c "from download import download; download('https://raw.githubusercontent.com/NeuroTechX/moabb/master/requirements.txt', 'requirements.txt', replace=True)"
-!pip install -r requirements.txt
-!rm requirements.txt
-!pip install -U https://github.com/NeuroTechX/moabb/archive/master.zip
-
 from moabb.datasets import BNCI2014001
 from moabb.paradigms import (LeftRightImagery, MotorImagery,
                              FilterBankMotorImagery)
