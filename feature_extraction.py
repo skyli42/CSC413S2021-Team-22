@@ -10,11 +10,11 @@ Original file is located at
 """
 
 
-from braindecode.datautil.preprocess import exponential_moving_standardize
-from braindecode.datautil.preprocess import MNEPreproc, NumpyPreproc, preprocess
-from braindecode.datautil.windowers import create_windows_from_events
 from braindecode.datasets.moabb import MOABBDataset
 import mne
+from braindecode.datautil.windowers import create_windows_from_events
+from braindecode.datautil.preprocess import exponential_moving_standardize
+from braindecode.datautil.preprocess import MNEPreproc, NumpyPreproc, preprocess
 
 import os
 
