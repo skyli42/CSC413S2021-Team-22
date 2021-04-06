@@ -9,9 +9,12 @@ Original file is located at
 # Imports
 """
 
-from moabb.datasets import BNCI2014001
-from moabb.paradigms import (LeftRightImagery, MotorImagery,
-                             FilterBankMotorImagery)
+
+from braindecode.datautil.preprocess import exponential_moving_standardize
+from braindecode.datautil.preprocess import MNEPreproc, NumpyPreproc, preprocess
+from braindecode.datautil.windowers import create_windows_from_events
+from braindecode.datasets.moabb import MOABBDataset
+import mne
 
 import os
 
@@ -88,6 +91,11 @@ Delta (δ)	0.5–4 Hz	Sleep
 def psd_feature(windowed_data, normalize=False, sample_freq=250, cutoff_freq=60): #use 250Hz, 
 
   f, psd = welch(windowed_data, sample_freq, nperseg=windowed_data.shape[3], axis=-1) #use the full window size for nperseg
+
+
+  #idx = np.argwhere(f<cutoff_freq) 
+  #psd = psd[..., idx]               #select freq_bins less then cut off
+
 
   Delta_idx = np.argwhere(f<4)
   Theta_idx = np.argwhere((4<=f) & (f<8))
@@ -218,18 +226,70 @@ def extract_features(windowed_data):
 
   return features
 
+"""# Preprocess"""
+
+def our_preprocess(dataset):
+  low_cut_hz = 4.  # low cut frequency for filtering
+  high_cut_hz = 38.  # high cut frequency for filtering
+  # Parameters for exponential moving standardization
+  factor_new = 1e-3
+  init_block_size = 1000
+
+  preprocessors = [
+      # keep only EEG sensors
+      MNEPreproc(fn='pick_types', eeg=True, meg=False, stim=False),
+      # convert from volt to microvolt, directly modifying the numpy array
+      NumpyPreproc(fn=lambda x: x * 1e6),
+      # bandpass filter
+      MNEPreproc(fn='filter', l_freq=low_cut_hz, h_freq=high_cut_hz),
+      # exponential moving standardization
+      NumpyPreproc(fn=exponential_moving_standardize, factor_new=factor_new,
+          init_block_size=init_block_size)
+  ]
+
+  # Transform the data
+  preprocess(dataset, preprocessors)
+
 """# Main"""
 
-def main():
-  dataset = BNCI2014001()
-  paradigm = MotorImagery(n_classes=4)
-  X, y, metadata = paradigm.get_data(dataset=dataset)
+def feature_extract(subjects):
+  
+  subject_id = 3
+  dataset = MOABBDataset(dataset_name="BNCI2014001", subject_ids=[subject_id])
 
-  Z = overlap_window(X, 75, 37, 2) # trial x channel x window x sample
+  our_preprocess(dataset)
+
+  trial_start_offset_seconds = -0.5
+  # Extract sampling frequency, check that they are same in all datasets
+  sfreq = dataset.datasets[0].raw.info['sfreq']
+  assert all([ds.raw.info['sfreq'] == sfreq for ds in dataset.datasets])
+  # Calculate the trial start offset in samples.
+  trial_start_offset_samples = int(trial_start_offset_seconds * sfreq)
+
+  # Create windows using braindecode function for this. It needs parameters to define how
+  # trials should be used.
+  windows_dataset = create_windows_from_events(
+      dataset,
+      trial_start_offset_samples=trial_start_offset_samples,
+      trial_stop_offset_samples=0,
+      preload=True
+  )
+
+  #Get the actual Data
+  data = []
+  labels = []
+  for d, l, g in windows_dataset:
+    data.append(d)
+    labels.append(l)
+
+  data = np.array(data)
+  labels = np.array(labels)
+
+  Z = overlap_window(data, 75, 37, 2) # trial x channel x window x sample
   print("windowed data shape: ", Z.shape)
 
   all_features = extract_features(Z) #final shape trials x Channels x Feature x Window
-  print(all_features.shape)
+  return all_features, labels
 
 if __name__ == "__main__":
-  main()
+  feature_extract([1])
