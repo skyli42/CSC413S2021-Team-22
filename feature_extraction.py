@@ -254,8 +254,7 @@ def our_preprocess(dataset):
 
 def feature_extract(subjects, windowsize):
   
-  subject_id = 3
-  dataset = MOABBDataset(dataset_name="BNCI2014001", subject_ids=[subject_id])
+  dataset = MOABBDataset(dataset_name="BNCI2014001", subject_ids=subjects)
 
   our_preprocess(dataset)
 
