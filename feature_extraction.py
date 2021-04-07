@@ -252,7 +252,7 @@ def our_preprocess(dataset):
 
 """# Main"""
 
-def feature_extract(subjects):
+def feature_extract(subjects, windowsize):
   
   subject_id = 3
   dataset = MOABBDataset(dataset_name="BNCI2014001", subject_ids=[subject_id])
@@ -285,7 +285,7 @@ def feature_extract(subjects):
   data = np.array(data)
   labels = np.array(labels)
 
-  Z = overlap_window(data, 75, 37, 2) # trial x channel x window x sample
+  Z = overlap_window(data, windowsize, windowsize//2, 2) # trial x channel x window x sample
   print("windowed data shape: ", Z.shape)
 
   all_features = extract_features(Z) #final shape trials x Channels x Feature x Window
