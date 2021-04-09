@@ -9,6 +9,9 @@ Original file is located at
 # Imports
 """
 
+from moabb.datasets import BNCI2014001
+from moabb.paradigms import (LeftRightImagery, MotorImagery,
+                             FilterBankMotorImagery)
 
 from braindecode.datasets.moabb import MOABBDataset
 import mne
@@ -64,6 +67,22 @@ def overlap_window(data, window_size, overlap_size, seq_axis):
   windows= np.concatenate(windows, axis=-1)
 
   return np.swapaxes(windows, -1, -2) # trial x channel x window x sample
+
+"""## Agument
+
+### Add noise
+"""
+
+def add_noise(x, y, duplication_factor, noise_level):
+  z = np.repeat(x,duplication_factor, axis=0)
+  w = np.repeat(y,duplication_factor, axis=0)
+  for i in range(x.shape[0]):
+    for j in range(x.shape[1]):
+      mu = np.mean(x[i,j,:])
+      std = np.std(x[i,j,:])*noise_level
+      for k in range(1,duplication_factor):
+        z[i*duplication_factor+k,j,:] = z[i,j,:] + np.random.normal(0, std, (x.shape[2]))
+  return z, w
 
 """## Features"""
 
@@ -252,9 +271,10 @@ def our_preprocess(dataset):
 
 """# Main"""
 
-def feature_extract(subjects, windowsize):
+def feature_extract(subjects, windowsize, aug_factor, aug_noise_factor):
   
-  dataset = MOABBDataset(dataset_name="BNCI2014001", subject_ids=subjects)
+  subject_id = 3
+  dataset = MOABBDataset(dataset_name="BNCI2014001", subject_ids=[subject_id])
 
   our_preprocess(dataset)
 
@@ -284,6 +304,8 @@ def feature_extract(subjects, windowsize):
   data = np.array(data)
   labels = np.array(labels)
 
+  data, labels = add_noise(data, labels, aug_factor, aug_noise_factor)
+
   Z = overlap_window(data, windowsize, windowsize//2, 2) # trial x channel x window x sample
   print("windowed data shape: ", Z.shape)
 
@@ -291,4 +313,4 @@ def feature_extract(subjects, windowsize):
   return all_features, labels
 
 if __name__ == "__main__":
-  feature_extract([1])
+  feature_extract([1], 75)
