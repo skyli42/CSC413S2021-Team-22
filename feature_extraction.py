@@ -108,23 +108,28 @@ Delta (δ)	0.5–4 Hz	Sleep
 """
 
 def psd_feature(windowed_data, normalize=False, sample_freq=250, cutoff_freq=60): #use 250Hz, 
-
+  print("Calculating Freq Transform")
   f, psd = welch(windowed_data, sample_freq, nperseg=windowed_data.shape[3], axis=-1) #use the full window size for nperseg
 
 
   #idx = np.argwhere(f<cutoff_freq) 
   #psd = psd[..., idx]               #select freq_bins less then cut off
 
-
+  print("Calculating bands (Alpha, Beta, ...ect)")
   Delta_idx = np.argwhere(f<4)
   Theta_idx = np.argwhere((4<=f) & (f<8))
   Alpha_idx = np.argwhere((8<=f) & (f<12))
   Beta_idx  = np.argwhere((12<=f) & (f<35))
   Gamma_idx = np.argwhere((35<=f) & (f<cutoff_freq))
+  print("Calculating Delta power")
   Delta = np.sum(psd[...,Delta_idx], axis=3)
+  print("Calculating Theta power")
   Theta = np.sum(psd[...,Theta_idx], axis=3)
+  print("Calculating Alpha power")
   Alpha = np.sum(psd[...,Alpha_idx], axis=3)
+  print("Calculating Beta power")
   Beta  = np.sum(psd[...,Beta_idx ], axis=3)
+  print("Calculating Gama power")
   Gamma = np.sum(psd[...,Gamma_idx], axis=3)
 
   ppsd = np.concatenate((Delta, Theta, Alpha, Beta, Gamma), axis=3)
@@ -215,15 +220,22 @@ def extract_features(windowed_data):
   Returns:
       The windowed data in format: trials x channels x features x windows
   '''
-
+  print("Calculating psd")
   psd = psd_feature(windowed_data)
   print("PSD shape: ", psd.shape)
+  print("Calculating kertosis")
   k = window_kurtosis(windowed_data)
+  print("Calculating Abs AUC")
   abs_under = abs_under_curve(windowed_data)
+  print("Calculating zeros")
   zeros = zero_crossings(windowed_data)
+  print("Calcualteing mean")
   mean = np.mean(windowed_data, axis=3)
+  print("Calculating var")
   var = np.var(windowed_data, axis=3)
+  print("Calculating skew")
   skewedness = skew(windowed_data, axis=3)
+  print("Calculating pkpk")
   pk = pkpk(windowed_data)
 
   #Since these are only 1 feature the features axis needs to be created
@@ -235,6 +247,7 @@ def extract_features(windowed_data):
   skewedness = skewedness[:,:,np.newaxis,:]
   pk = pk[:,:,np.newaxis,:]
 
+  print("Concatenate Features")
   features = np.concatenate((psd,k), axis=2)
   features = np.concatenate((features, abs_under), axis=2)
   features = np.concatenate((features, zeros), axis=2)
@@ -310,6 +323,7 @@ def feature_extract(subjects, windowsize, aug_factor, aug_noise_factor):
   print("windowed data shape: ", Z.shape)
 
   all_features = extract_features(Z) #final shape trials x Channels x Feature x Window
+  print("Feature Extraction Complete")
   return all_features, labels
 
 if __name__ == "__main__":
