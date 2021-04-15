@@ -30,6 +30,7 @@ from tqdm import tqdm
 from scipy.signal import welch, spectrogram
 from scipy.ndimage.interpolation import shift
 from scipy.stats import kurtosis, skew
+from sklearn.model_selection import train_test_split
 
 """# Feature Extraction
 
@@ -74,6 +75,8 @@ def overlap_window(data, window_size, overlap_size, seq_axis):
 """
 
 def add_noise(x, y, duplication_factor, noise_level):
+  if duplication_factor == 0:
+    return x, y
   z = np.repeat(x,duplication_factor, axis=0)
   w = np.repeat(y,duplication_factor, axis=0)
   for i in range(x.shape[0]):
@@ -83,6 +86,18 @@ def add_noise(x, y, duplication_factor, noise_level):
       for k in range(1,duplication_factor):
         z[i*duplication_factor+k,j,:] = z[i,j,:] + np.random.normal(0, std, (x.shape[2]))
   return z, w
+  
+def roll_data(x, percent_rolls, window_size, roll_factor):
+  size = x.shape[0]
+  bucket = np.arange(size)
+  idx = np.random.choice(bucket, int(size*percent_rolls), replace=False)
+  #print(idx)
+  for i in idx:
+    shift = int(np.random.randint(window_size)*roll_factor)
+    #print("i: ", i)
+    #print("shift: ", shift)
+    x[i,:,:] = np.roll(x[i,:,:], shift, axis=-1)
+
 
 """## Features"""
 
@@ -207,7 +222,7 @@ def pkpk(windowed_data):
 
 """## Extract Freatures"""
 
-def extract_features(windowed_data):
+def extract_features(windowed_data, sample_freq=250):
   '''
   Takes windowed time series data and computes freqency and statistical features for each window. 
 
@@ -221,7 +236,7 @@ def extract_features(windowed_data):
       The windowed data in format: trials x channels x features x windows
   '''
   print("Calculating psd")
-  psd = psd_feature(windowed_data)
+  psd = psd_feature(windowed_data, sample_freq=sample_freq)
   print("PSD shape: ", psd.shape)
   print("Calculating kertosis")
   k = window_kurtosis(windowed_data)
@@ -284,10 +299,11 @@ def our_preprocess(dataset):
 
 """# Main"""
 
-def feature_extract(subjects, windowsize, aug_factor, aug_noise_factor):
+def feature_extract(dataset, subjects, windowsize, aug_factor, aug_noise_factor):
   
-  subject_id = 3
-  dataset = MOABBDataset(dataset_name="BNCI2014001", subject_ids=[subject_id])
+  # dataset = "Shin2017A" OR "BNCI2014001"
+
+  dataset = MOABBDataset(dataset_name=dataset, subject_ids=subjects)
 
   our_preprocess(dataset)
 
@@ -316,15 +332,21 @@ def feature_extract(subjects, windowsize, aug_factor, aug_noise_factor):
 
   data = np.array(data)
   labels = np.array(labels)
+  X_train, X_val, y_train, y_val = train_test_split(data, labels, test_size=0.4, random_state=1)
+  X_val, X_test, y_val, y_test = train_test_split(X_val, y_val, test_size=0.5, random_state=1)
 
-  data, labels = add_noise(data, labels, aug_factor, aug_noise_factor)
+  X_train, y_train = add_noise(X_train, y_train, aug_factor, aug_noise_factor)
+  roll_data(X_train, 0.5, windowsize, 0.3)
+  X_train = overlap_window(X_train, windowsize, windowsize//2, 2) # trial x channel x window x sample
+  X_train = extract_features(X_train) #final shape trials x Channels x Feature x Window
 
-  Z = overlap_window(data, windowsize, windowsize//2, 2) # trial x channel x window x sample
-  print("windowed data shape: ", Z.shape)
+  X_val = overlap_window(X_val, windowsize, windowsize//2, 2) # trial x channel x window x sample
+  X_val = extract_features(X_val) #final shape trials x Channels x Feature x Window
 
-  all_features = extract_features(Z) #final shape trials x Channels x Feature x Window
-  print("Feature Extraction Complete")
-  return all_features, labels
+  X_test = overlap_window(X_test, windowsize, windowsize//2, 2) # trial x channel x window x sample
+  X_test = extract_features(X_test) #final shape trials x Channels x Feature x Window
+
+  return X_train, y_train, X_val, y_val, X_test, y_test
 
 if __name__ == "__main__":
-  feature_extract([1], 75)
+  feature_extract("Shin2017A", [1], 75, 10, 2)
