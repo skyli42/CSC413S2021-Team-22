@@ -299,7 +299,7 @@ def our_preprocess(dataset):
 
 """# Main"""
 
-def feature_extract(dataset, subjects, windowsize, aug_factor, aug_noise_factor):
+def feature_extract(dataset, subjects, windowsize, aug_factor, aug_noise_factor, seed=1):
   
   # dataset = "Shin2017A" OR "BNCI2014001"
 
@@ -332,8 +332,8 @@ def feature_extract(dataset, subjects, windowsize, aug_factor, aug_noise_factor)
 
   data = np.array(data)
   labels = np.array(labels)
-  X_train, X_val, y_train, y_val = train_test_split(data, labels, test_size=0.4, random_state=1)
-  X_val, X_test, y_val, y_test = train_test_split(X_val, y_val, test_size=0.5, random_state=1)
+  X_train, X_val, y_train, y_val = train_test_split(data, labels, test_size=0.4, random_state=seed)
+  X_val, X_test, y_val, y_test = train_test_split(X_val, y_val, test_size=0.5, random_state=seed)
 
   X_train, y_train = add_noise(X_train, y_train, aug_factor, aug_noise_factor)
   roll_data(X_train, 0.5, windowsize, 0.3)
